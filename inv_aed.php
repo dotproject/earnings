@@ -1,5 +1,7 @@
-<?php /* earnings $Id: view.php,v .1 2004/08/01 00:41:38 Stradius Exp $ */
+<?php /* earnings $Id: inv_aed.php,v 1.1 2004/08/31 09:27:06 stradius Exp $ */
 $earning_id = intval( dPgetParam( $_GET, "earning_id", 0 ) );
+
+require_once( $AppUI->getSystemClass( 'libmail' ) );
 
 // Respond To inv_dosql Commands in _POST
 if (isset( $_POST['inv_dosql'] ) ) {
@@ -28,6 +30,7 @@ if (isset( $_POST['inv_dosql'] ) ) {
 		if (!db_exec( $sql )) {
 			echo db_error();
 		}
+		$AppUI->redirect();
 	}
 
 	// Remove Items That Were Checked
@@ -51,6 +54,7 @@ if (isset( $_POST['inv_dosql'] ) ) {
 			echo db_error();
 		}
 		echo $sql;
+		$AppUI->redirect();
 	}
 
 	// Update Rate Changes On Items
@@ -70,6 +74,7 @@ if (isset( $_POST['inv_dosql'] ) ) {
 				}
 			}
 		}
+		$AppUI->redirect();
 	}
 
 
@@ -155,7 +160,8 @@ if (isset( $_POST['inv_dosql'] ) ) {
 		$sql .= " earning_submit_company_id='" . $_POST["earning_submit_company_id"] . "',";
 		$sql .= " earning_submit_email='" . $_POST["earning_submit_email"] . "',";
 		$sql .= " earning_terms='" . $_POST["earning_terms"] . "',";
-		$sql .= " earning_comments='" . $_POST["earning_comments"] . "',";
+		$sql .= " earning_comments='" . addslashes($_POST["earning_comments"]) . "',";
+		$sql .= " earning_title='" . addslashes($_POST["earning_title"]) . "',";
 		if ( strcmp($_POST["earning_submit_address1"], "") == 0 ) {
 			// The earning address override hasn't been used so let's fill it in automatically
 			// Gather Company Details
@@ -195,7 +201,7 @@ if (isset( $_POST['inv_dosql'] ) ) {
 	if ($_POST['inv_dosql'] == "addinv") {
 		// Create SQL INSERT command from POST variables
 		$sql = "INSERT INTO earnings (earning_user_id, earning_date, earning_num, earning_submit_contact, earning_submit_company_id,";
-		$sql .= "earning_submit_email, earning_terms, earning_comments, earning_submit_address1, earning_submit_address2,";
+		$sql .= "earning_submit_email, earning_terms, earning_comments, earning_title, earning_submit_address1, earning_submit_address2,";
 		$sql .= "earning_submit_city, earning_submit_state, earning_submit_zip, earning_submit_phone";
 		$sql .= ") VALUES ( ";
 		$sql .= "'" .$AppUI->user_id . "',";
@@ -205,7 +211,8 @@ if (isset( $_POST['inv_dosql'] ) ) {
 		$sql .= "'" . $_POST["earning_submit_company_id"] . "',";
 		$sql .= "'" . $_POST["earning_submit_email"] . "',";
 		$sql .= "'" . $_POST["earning_terms"] . "',";
-		$sql .= "'" . $_POST["earning_comments"] . "',";
+		$sql .= "'" . addslashes($_POST["earning_comments"]) . "',";
+		$sql .= "'" . addslashes($_POST["earning_title"]) . "',";
 		if ( strcmp($_POST["earning_submit_address1"], "") == 0 ) {
 			// The earning address override hasn't been used so let's fill it in automatically
 			// Gather Company Details
@@ -242,24 +249,73 @@ if (isset( $_POST['inv_dosql'] ) ) {
 
 	// Processing Activity Updates
 	if ( ($_POST['inv_dosql'] == "postsubmit") || ($_POST['inv_dosql'] == "postapprove") || ($_POST['inv_dosql'] == "postdecline") || ($_POST['inv_dosql'] == "postpaid") ) {
+		$notifyMail = new Mail;
 		switch ($_POST['inv_dosql']) {
 			case "postsubmit":
-				$sql="UPDATE earnings SET earning_submitted_comment='" . $_POST["earning_submitted_comment"] . "', earning_submitted='" . date("Ymd") . "' WHERE earning_id=" . $earning_id . ";";
+				$sql="UPDATE earnings SET earning_submitted_comment='" . addslashes($_POST["earning_submitted_comment"]) . "', earning_submitted='" . date("Ymd") . "', earning_approved='', earning_approved_comment='' WHERE earning_id=" . $earning_id . ";";
+				$notifyMail->From( $AppUI->user_first_name . " " . $AppUI->user_last_name . " <" . $AppUI->user_email . ">" );
+				$notifyMail->To( $_POST['earning_submit_contact'] . " <" . $_POST['earning_submit_email'] . ">" );
+				$notifyMail->Subject( "Approval Requested from " . $AppUI->user_first_name . " " . $AppUI->user_last_name . "." );
+				$message = "A pay request (timecard or invoice) has been placed into the queue for your approval.  A synopsis follows:\n\n";
+				$message .= "Request Number: " . $_POST['earning_num'] . "\n";
+				$message .= "Title: " . stripslashes($_POST['earning_title']) . "\n";
+				$message .= "Comments: " . stripslashes($_POST['earning_comments']) . "\n";
+				$message .= "Submittal Comments: " . stripslashes($_POST['earning_submitted_comment']) . "\n\n";
+				$message .= "You can review and process this request by clicking the following link:\n";
+				$message .= "\t" . $dPconfig['base_url'] . "/index.php?m=earnings&a=view&earning_id=" . $_POST['earning_id'] . "\n\n";
+				$message .= "Thanks.\n\n";
+				$notifyMail->Body( $message );
+				//$notifyMail->Cc("");
+				//$notifyMail->Bcc("");
+				$notifyMail->Priority(3);
 				break;
 			case "postapprove":
-				$sql="UPDATE earnings SET earning_approved_comment='" . $_POST["earning_approved_comment"] . "', earning_approved='" . date("Ymd") . "' WHERE earning_id=" . $earning_id . ";";
+				$sql="UPDATE earnings SET earning_approved_comment='" . addslashes($_POST["earning_approved_comment"]) . "', earning_approved='" . date("Ymd") . "', earning_approved_by=" . $AppUI->user_id . " WHERE earning_id=" . $earning_id . ";";
+				$notifyMail->From( $AppUI->user_first_name . " " . $AppUI->user_last_name . " <" . $AppUI->user_email . ">" );
+				$notifyMail->To( $_POST['earning_user_name'] . " <" . $_POST['earning_user_email'] . ">" );
+				$notifyMail->Subject( "Approval Received from " . $AppUI->user_first_name . " " . $AppUI->user_last_name . "." );
+				$message = "Your pay request (timecard or invoice) was approved.  A synopsis follows:\n\n";
+				$message .= "Request Number: " . $_POST['earning_num'] . "\n";
+				$message .= "Title: " . stripslashes($_POST['earning_title']) . "\n";
+				$message .= "Comments: " . stripslashes($_POST['earning_comments']) . "\n";
+				$message .= "Submittal Comments: " . stripslashes($_POST['earning_submitted_comment']) . "\n";
+				$message .= "Approval Comments: " . stripslashes($_POST['earning_approved_comment']) . "\n\n";
+				$message .= "You can review the pay request by clicking the following link:\n";
+				$message .= "\t" . $dPconfig['base_url'] . "/index.php?m=earnings&a=view&earning_id=" . $_POST['earning_id'] . "\n\n";
+				$message .= "Thanks.\n\n";
+				$notifyMail->Body( $message );
+				//$notifyMail->Cc("");
+				//$notifyMail->Bcc("");
+				$notifyMail->Priority(3);
 				break;
 			case "postpaid":
-				$sql="UPDATE earnings SET earning_paid_comment='" . $_POST["earning_paid_comment"] . "', earning_paid='" . date("Ymd") . "' WHERE earning_id=" . $earning_id . ";";
+				$sql="UPDATE earnings SET earning_paid_comment='" . addslashes($_POST["earning_paid_comment"]) . "', earning_paid='" . date("Ymd") . "' WHERE earning_id=" . $earning_id . ";";
 				break;
 			case "postdecline":
-				$sql="UPDATE earnings SET earning_approved_comment='" . $_POST["earning_approved_comment"] . "', earning_submitted='0000-00-00 00:00:00' WHERE earning_id=" . $earning_id . ";";
+				$sql="UPDATE earnings SET earning_approved_comment='" . addslashes($_POST["earning_approved_comment"]) . "', earning_submitted='0000-00-00 00:00:00' WHERE earning_id=" . $earning_id . ";";
+				$notifyMail->From( $AppUI->user_first_name . " " . $AppUI->user_last_name . " <" . $AppUI->user_email . ">" );
+				$notifyMail->To( $_POST['earning_user_name'] . " <" . $_POST['earning_user_email'] . ">" );
+				$notifyMail->Subject( "Request Declined from " . $AppUI->user_first_name . " " . $AppUI->user_last_name . "." );
+				$message = "Your pay request (timecard or invoice) was declined.  A synopsis follows:\n\n";
+				$message .= "Request Number: " . $_POST['earning_num'] . "\n";
+				$message .= "Title: " . stripslashes($_POST['earning_title']) . "\n";
+				$message .= "Comments: " . stripslashes($_POST['earning_comments']) . "\n";
+				$message .= "Submittal Comments: " . stripslashes($_POST['earning_submitted_comment']) . "\n";
+				$message .= "Approval Comments: " . stripslashes($_POST['earning_approved_comment']) . "\n\n";
+				$message .= "You can review and/or resubmit the pay request by clicking the following link:\n";
+				$message .= "\t" . $dPconfig['base_url'] . "/index.php?m=earnings&a=view&earning_id=" . $_POST['earning_id'] . "\n\n";
+				$message .= "Thanks.\n\n";
+				$notifyMail->Body( $message );
+				//$notifyMail->Cc("");
+				//$notifyMail->Bcc("");
+				$notifyMail->Priority(3);
 				break;
 		}
-		echo $sql;
+		//echo $sql;
 		if (!db_exec( $sql )) {
 			echo db_error();
 		}
+		$notifyMail->Send();
 
 		// Then redirect application back to earnings Main Module
 		$relocate = "m=earnings";
@@ -268,6 +324,5 @@ if (isset( $_POST['inv_dosql'] ) ) {
 
 }
 
-//var_dump($_POST);
-$AppUI->redirect();
+var_dump($_POST);
 

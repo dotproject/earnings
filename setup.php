@@ -1,10 +1,10 @@
-<?php /* $Id: setup.php,v 1.1.1.1 2003/12/04 17:53:45 stradius Exp $ */
+<?php /* $Id: setup.php,v 1.1 2004/08/31 09:27:06 stradius Exp $ */
 /*
 dotProject Module
 
 Name:      Earnings
 Directory: earnings
-Version:   0.01
+Version:   0.2
 Class:     user
 UI Name:   Earnings
 UI Icon:   earnings.gif
@@ -16,7 +16,7 @@ If it is accessed directory it will give a summary of the module parameters.
 // MODULE CONFIGURATION DEFINITION
 $config = array();
 $config['mod_name'] = 'Earnings';
-$config['mod_version'] = '0.1';
+$config['mod_version'] = '0.2';
 $config['mod_directory'] = 'earnings';
 $config['mod_setup_class'] = 'CSetupEarnings';
 $config['mod_type'] = 'user';
@@ -48,6 +48,7 @@ class CSetupEarnings {
 			`earning_user_id` int(11) NOT NULL default '0',
 			`earning_date` datetime NOT NULL default '0000-00-00 00:00:00',
 			`earning_num` varchar(35) NOT NULL default '',
+			`earning_title` varchar(40) NOT NULL default '',
 			`earning_submit_company_id` int(10) NOT NULL default '0',
 			`earning_submit_contact` varchar(50) NOT NULL default '',
 			`earning_submit_email` varchar(200) NOT NULL default '',
@@ -62,6 +63,7 @@ class CSetupEarnings {
 			`earning_total` int(20) NOT NULL default '0',
 			`earning_submitted` datetime NOT NULL default '0000-00-00 00:00:00',
 			`earning_submitted_comment` varchar(250) NOT NULL default '',
+			`earning_approved_by` int(11) NOT NULL default '0',
 			`earning_approved` datetime NOT NULL default '0000-00-00 00:00:00',
 			`earning_approved_comment` varchar(250) NOT NULL default '',
 			`earning_paid` datetime NOT NULL default '0000-00-00 00:00:00',

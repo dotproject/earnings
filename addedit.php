@@ -1,4 +1,4 @@
-<?php /* earnings $Id: addedit.php,v .1 2004/08/01 02:22:51 stradius Exp $ */
+<?php /* earnings $Id: addedit.php,v 1.1 2004/08/31 09:27:05 stradius Exp $ */
 /**
 * earnings :: Add/Edit earning
 */
@@ -69,18 +69,18 @@ $earning_date = intval( $obj->earning_date ) ? new CDate( $obj->earning_date ) :
 
 // setup the title block
 // customize by user-type
-if ( $AppUI->user_type != 6 ) {
+if ( $AppUI->user_type != 7 ) {
 	if ($form_mode == 1 ) {
 		$titleBlock = new CTitleBlock( 'Edit Invoice', 'earnings.gif', $m, "$m.$a" );
-		$titleBlock->addCrumb( "?m=earnings", "earnings list" );
+		$titleBlock->addCrumb( "?m=earnings", "invoices list" );
 		if ($canEdit) {
 			if ($canEdit and $obj->submitted_date == Null) {
-				$titleBlock->addCrumbDelete( 'delete earning', $canDelete, $msg );
+				$titleBlock->addCrumbDelete( 'delete invoice', $canDelete, $msg );
 			}
 		}
 	} else {
 		$titleBlock = new CTitleBlock( 'Add Invoice', 'earnings.gif', $m, "$m.$a" );
-		$titleBlock->addCrumb( "?m=earnings", "earnings list" );
+		$titleBlock->addCrumb( "?m=earnings", "invoices list" );
 	}
 } else {
 	if ($form_mode == 1 ) {
@@ -124,10 +124,44 @@ function submitIt(){
 		alert( "A unique form number is required.  Please enter one or use the 'suggest' button.");
 		document.editFrm.earning_num.focus();
 	} else {
-		if ( confirm("Commit these changes to the document?") ) {
-			document.editFrm.submit();
+		// Now Verify the Email Address
+		var testField = trim(document.editFrm.earning_submit_email.value);
+		var emailError=0;
+		// Since One Is Given, We'll Validate It
+		var indexOfAtSign = testField.indexOf("@");
+		if (indexOfAtSign > 0) {
+			// Check for dot-something
+			var indexOfDot = testField.lastIndexOf(".");
+			// Make sure that the last dot is after @ and something is after last dot.
+			if (( indexOfDot < indexOfAtSign ) || (testField.length < indexOfDot+2)) {
+
+				emailError=1;
+			}
+		} else {
+			emailError=1;
+		}
+
+		if ( emailError ) {
+			alert ('Invalid Email Address. A valid email address is required for notification.');
+			document.editFrm.earning_submit_email.focus();
+			return;
+		} else {
+			if ( confirm("Commit these changes to the document?") ) {
+					document.editFrm.submit();
+			}
 		}
 	}
+}
+
+// Basic String Trimming Function
+function trim(s) {
+	while (s.substring(0,1) == ' ') {
+		s = s.substring(1,s.length);
+		}
+	while (s.substring(s.length-1,s.length) == ' ') {
+		s = s.substring(0,s.length-1);
+		}
+	return s;
 }
 
 function selectCompany(companyID) {
@@ -150,31 +184,31 @@ function selectCompany(companyID) {
 <? } ?>
 <tr>
 	<td width="50%" valign="top">
-		<strong><?php echo $AppUI->_('Details');?></strong>
+		<strong><?php echo $AppUI->_('Form Details');?></strong>
 		<table cellspacing="1" cellpadding="2" border="0" width="100%">
-		<tr>
-			<?php if ( $AppUI->user_type != 6 ) { ?>
-				<td align="right" nowrap><?php echo $AppUI->_('earning Number');?></td>
-			<?php } else { ?>
-				<td align="right" nowrap><?php echo $AppUI->_('Timecard Number');?></td>
-			<?php } ?>
-			<td><input type="text" class="text" name="earning_num" value="<?php echo dPformSafe( $obj->earning_num );?>" size="30" maxlength="35" />&nbsp;
-			<input type="button" name="btnSuggNum" value=" suggest " onClick="javascript:document.editFrm.earning_num.value='<?php echo str_pad($AppUI->user_id, 11, "0", STR_PAD_LEFT)  . "-" . date("YmdHi"); ?>';"></td>
-		</tr>
 		<tr>
 			<td align="right" nowrap><?php echo $AppUI->_('Date');?></td>
 			<td>
 				<input type="hidden" name="earning_date" value="<?php echo $earning_date->format( FMT_TIMESTAMP_DATE );?>">
-				<input type="text" name="earning_date_formatted" size="12" value="<?php echo $earning_date->format( $df );?>" class="text" disabled="disabled" />&nbsp;<a href="#inv_date" onClick="popCalendar('earning_date');"><img align="middle" src="./images/calendar.gif" width="24" height="12" alt="<?php echo $AppUI->_('Calendar');?>" border="0"></a>
+				<input type="text" name="earning_date_formatted" size="12" value="<?php echo $earning_date->format( $df );?>" class="text" disabled="disabled" />&nbsp;<a href="#inv_date" onClick="popCalendar('earning_date');"><img align="middle" src="./images/calendar.gif" width="24" height="12" alt="<?php echo $AppUI->_('Calendar');?>" border="0"></a>&nbsp;<i>Click the button to select a different date.</i>
 			</td>
 		</tr>
 		<tr>
-			<td align="right" nowrap><?php echo $AppUI->_('Contact');?></td>
-			<td ><input type="text" class="text" name="earning_submit_contact" value="<?php echo dPformSafe( $obj->earning_submit_contact );?>" size="40" maxlength="50" /></td>
+			<?php if ( $AppUI->user_type != 7 ) { ?>
+				<td align="right" nowrap><?php echo $AppUI->_('Invoice Number');?></td>
+			<?php } else { ?>
+				<td align="right" nowrap><?php echo $AppUI->_('Timecard Number');?></td>
+			<?php } ?>
+			<td><input type="text" class="text" name="earning_num" value="<?php echo dPformSafe( $obj->earning_num );?>" size="30" maxlength="35" />&nbsp;
+			<input type="button" name="btnSuggNum" value=" suggest " onClick="javascript:document.editFrm.earning_num.value='<?php echo date("YmdHi") . "-" . $AppUI->user_id; ?>';">&nbsp;<i>Number must be unique.  It is highly recommended that you use the suggest button.</i></td>
 		</tr>
 		<tr>
-			<?php if ( $AppUI->user_type < 6 ) { ?>
-			<td align="right" nowrap><?php echo $AppUI->_('To');?></td>
+			<td align="right" nowrap><?php echo $AppUI->_('Title');?></td>
+			<td ><input type="text" class="text" name="earning_title" value="<?php echo dPformSafe( $obj->earning_title );?>" size="40" maxlength="40" />&nbsp;<i>Example: "Hourly work from 08/01/2004 to 08/15/2004."</i></td>
+		</tr>
+		<tr>
+			<?php if ( $AppUI->user_type < 7 ) { ?>
+			<td align="right" nowrap><?php echo $AppUI->_('To Company');?></td>
 			<td width="100%">
 			<input type="hidden" name="earning_submit_company_id" value="<?php echo $obj->earning_submit_company_id;?>">
 			<?php
@@ -189,18 +223,22 @@ function selectCompany(companyID) {
 			<?php } ?>
 		</tr>
 		<tr>
-			<td align="right" nowrap><?php echo $AppUI->_('Email');?></td>
-			<td ><input type="text" class="text" name="earning_submit_email" value="<?php echo dPformSafe( $obj->earning_submit_email );?>" size="40" maxlength="200" /></td>
+			<td align="right" nowrap><?php echo $AppUI->_('Contact (name)');?></td>
+			<td ><input type="text" class="text" name="earning_submit_contact" value="<?php echo dPformSafe( $obj->earning_submit_contact );?>" size="40" maxlength="50" /></td>
 		</tr>
 		<tr>
-			<?php if ( $AppUI->user_type == 6 ) { ?>
+			<td align="right" nowrap><?php echo $AppUI->_('Notify Email');?></td>
+			<td ><input type="text" class="text" name="earning_submit_email" value="<?php echo dPformSafe( $obj->earning_submit_email );?>" size="40" maxlength="200" />&nbsp;<i>A notification email will be sent to this address when you submit it for approval.</i></td>
+		</tr>
+		<tr>
+			<?php if ( $AppUI->user_type == 7 ) { ?>
 			<td colspan="2">
 				<input type="hidden" name="earning_terms" value="N/A">
 			</td>
 			<?php } else { ?>
 			<td align="right" nowrap><?php echo $AppUI->_('Terms');?></td>
 			<td>
-				<input type="text" name="earning_terms" value="<?php echo $obj->earning_terms; ?>">
+				<input type="text" name="earning_terms" value="<?php echo $obj->earning_terms; ?>">&nbsp;<i>Purely for your notations.</i>
 			</td>
 			<?php } ?>
 		</tr>
@@ -208,7 +246,7 @@ function selectCompany(companyID) {
 			<td>
 			</td>
 			<td>
-				<?php if ( $AppUI->user_type < 6 ) { ?>
+				<?php if ( $AppUI->user_type < 7 ) { ?>
 				<table bgcolor="#CCCCCC">
 					<tr>
 						<td valign="top"><b>OVERRIDE ADDRESS:</b></td>
@@ -255,7 +293,7 @@ function selectCompany(companyID) {
 	</tr>
 	<tr>
 		<td colspan="2">
-			<strong><?php echo $AppUI->_('Comments');?></strong><br />
+			<strong><?php echo $AppUI->_('Comments On This Form');?></strong>&nbsp;<i>These comments will be permanently added to the form.  Example: "This is for the Newsweek Project."</i><br/>
 			<table cellspacing="0" cellpadding="2" border="0" width="100%">
 				<tr>
 					<td>

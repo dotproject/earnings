@@ -1,4 +1,4 @@
-<?php  /* earnings $Id: index.php,v .1 2004/08/01 00:41:38 Stradius Exp $ */
+<?php  /* earnings $Id: index.php,v 1.1 2004/08/31 09:27:05 stradius Exp $ */
 $AppUI->savePlace();
 
 // retrieve any state parameters
@@ -47,7 +47,15 @@ case 3:
 	break;
 case 4:
 	// Awaiting Approval
-	$sql = "SELECT earnings.*, companies.company_name FROM earnings, companies WHERE earning_approved = '0000-00-00 00:00:00' AND earning_submitted != '0000-00-00 00:00:00' AND earning_submit_company_id = company_id" . " ORDER BY " . $orderby . ";";
+	$sql = "SELECT earnings.*, companies.company_name, users.user_first_name, users.user_last_name FROM earnings, companies, users WHERE earning_approved = '0000-00-00 00:00:00' AND earning_submitted != '0000-00-00 00:00:00' AND earning_submit_company_id = company_id AND earning_user_id = user_id" . " ORDER BY " . $orderby . ";";
+	break;
+case 5:
+	// Items User Approved
+	$sql = "SELECT earnings.*, companies.company_name, users.user_first_name, users.user_last_name FROM earnings, companies, users WHERE earning_approved != '0000-00-00 00:00:00' AND earning_submitted != '0000-00-00 00:00:00' AND earning_submit_company_id = company_id AND earning_user_id = user_id" . " AND earning_approved_by = '" . $AppUI->user_id . "' ORDER BY " . $orderby . ";";
+	break;
+case 6:
+	// Approved History
+	$sql = "SELECT earnings.*, companies.company_name, users.user_first_name, users.user_last_name FROM earnings, companies, users WHERE earning_approved != '0000-00-00 00:00:00' AND earning_submitted != '0000-00-00 00:00:00' AND earning_submit_company_id = company_id AND earning_user_id = user_id" . " ORDER BY " . $orderby . ";";
 	break;
 }
 $earnings = db_loadList( $sql );
@@ -55,7 +63,7 @@ $earnings = db_loadList( $sql );
 // setup the title block
 // customize to user-type
 //$titleBlock->addCrumb( "?m=tasks&a=todo", "my todo" );
-if ( $AppUI->user_type != 6 ) {
+if ( $AppUI->user_type != 7 ) {
 	$titleBlock = new CTitleBlock( 'Earnings', 'earnings.gif', $m, "$m.$a" );
 	if ($canEdit) {
 		$titleBlock->addCell(
@@ -76,16 +84,19 @@ $titleBlock->show();
 
 // tabbed information boxes
 $tabBox = new CTabBox( "?m=earnings&orderby=$orderby", "{$AppUI->cfg['root_dir']}/modules/earnings/", $tab );
-$tabBox->add( 'vw_idx', 'Prepare' );
-$tabBox->add( 'vw_idx', 'Submitted' );
+$tabBox->add( 'vw_idx', 'New/Edit' );
+$tabBox->add( 'vw_idx', 'Awaiting Approval' );
 $tabBox->add( 'vw_idx', 'Approved' );
-if ( $AppUI->user_type != 6 ) {
+if ( $AppUI->user_type != 7 ) {
 	$tabBox->add( 'vw_idx', 'Paid' );
 }
-if ( $AppUI->user_type < 6 ) {
-	$tabBox->add( 'vw_idx', 'Waiting For Approval' );
+if ( $AppUI->user_type < 7 ) {
+	$tabBox->add( 'vw_idx', 'MGR: To Approve' );
+	$tabBox->add( 'vw_idx', 'MGR: I Approved' );
+	$tabBox->add( 'vw_idx', 'MGR: All Approved' );
 }
 
+//var_dump($AppUI);
 
 $tabBox->show();
 

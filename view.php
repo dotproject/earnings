@@ -1,4 +1,4 @@
-<?php /* earnings $Id: view.php,v .1 2004/08/01 00:41:38 Stradius Exp $ */
+<?php /* earnings $Id: view.php,v 1.1 2004/08/31 09:27:06 stradius Exp $ */
 $earning_id = intval( dPgetParam( $_GET, "earning_id", 0 ) );
 
 // retrieve any state parameters
@@ -10,11 +10,11 @@ $tab = $AppUI->getState( 'EarnVwTab' ) !== NULL ? $AppUI->getState( 'EarnVwTab' 
 // load the record data
 $sql = "SELECT i1.earning_id, i1.earning_user_id, i1.earning_date, i1.earning_num, i1.earning_submit_company_id, i1.earning_submit_contact, 
 i1.earning_submit_email, i1.earning_submit_phone, i1.earning_submit_address1, i1.earning_submit_address2, i1.earning_submit_city, i1.earning_submit_state, 
-i1.earning_submit_zip, i1.earning_terms, i1.earning_comments, 
-i1.earning_total, i1.earning_submitted, i1.earning_submitted_comment, i1.earning_approved, 
+i1.earning_submit_zip, i1.earning_terms, i1.earning_comments, i1.earning_title, 
+i1.earning_total, i1.earning_submitted, i1.earning_submitted_comment, i1.earning_approved, i1.earning_approved_by,
 i1.earning_approved_comment, i1.earning_paid, i1.earning_paid_comment, i2.earning_items_id, i2.earning_parent_id, 
 i2.earning_tasklog_id, i2.earning_item_date, i2.earning_item_description, i2.earning_item_hours, 
-i2.earning_item_costcode, i2.earning_item_rate, c.company_name, u.user_username, u.user_first_name, u.user_last_name 
+i2.earning_item_costcode, i2.earning_item_rate, c.company_name, u.user_username, u.user_first_name, u.user_last_name, u.user_type, u.user_email
 FROM earnings i1, earnings_items i2, companies c, users u
 WHERE c.company_id = i1.earning_submit_company_id AND u.user_id = i1.earning_user_id AND i1.earning_id = $earning_id
 GROUP BY i1.earning_id";
@@ -26,6 +26,12 @@ if (!db_loadObject( $sql, $obj )) {
 	//$AppUI->redirect();
 } else {
 	$AppUI->savePlace();
+}
+
+$timecard = 0;
+// If document from employee, switch to timecard display where appropriate
+if ( $obj->user_type == "7" ) {
+	$timecard = 1;
 }
 
 // get the prefered date format
@@ -42,14 +48,14 @@ $changeLock = strcmp($obj->earning_submitted, '0000-00-00 00:00:00');
 
 // setup the title block
 // customize to user-type
-if ( $AppUI->user_type != 6 ) {
+if ( $AppUI->user_type != 7 && !$timecard) {
 	$titleBlock = new CTitleBlock( 'View Invoice', 'earnings.gif', $m, "$m.$a" );
-	$titleBlock->addCrumb( "?m=earnings", "earnings list" );
+	$titleBlock->addCrumb( "?m=earnings", "invoices list" );
 	if ($canEdit) {
 		if ( !$changeLock ) { 
-			$titleBlock->addCrumb( "?m=earnings&a=addedit&earning_id=$earning_id", "edit this earning" );
+			$titleBlock->addCrumb( "?m=earnings&a=addedit&earning_id=$earning_id", "edit this invoice" );
 			if ($canEdit && ( strcmp($submitted_date,'') == 0 ) ) {
-				$titleBlock->addCrumbDelete( 'delete earning', $canDelete, $msg );
+				$titleBlock->addCrumbDelete( 'delete invoices', $canDelete, $msg );
 			}
 		}
 	}
@@ -85,8 +91,18 @@ function updRates(){
 }
 
 function addInvItems(){
-	if ( confirm("Add Selected Line Items?") ) {
-		document.frmAddInv.submit();
+	var checkTest = 0;
+	for(var i=0;i<document.frmAddInv.length;i++) {
+		if ( document.frmAddInv[i].checked == true ) {
+			checkTest = 1;
+		}
+	}
+	if ( checkTest ) {
+		if ( confirm("Add Selected Line Items?") ) {
+			document.frmAddInv.submit();
+		}
+	} else {
+		alert("You must select an item to add first.");
 	}
 }
 
@@ -112,9 +128,14 @@ function postApprove() {
 }
 
 function postDecline() {
-	if ( confirm("Decline Payment?") ) {
-		document.frmApprove.inv_dosql.value="postdecline";
-		document.frmApprove.submit();
+	if (document.frmApprove.earning_approved_comment.value.length < 1) {
+		alert( "A comment is required if you decline a payment request.");
+		document.frmApprove.earning_approved_comment.focus();
+	} else {
+		if ( confirm("Decline Payment?") ) {
+			document.frmApprove.inv_dosql.value="postdecline";
+			document.frmApprove.submit();
+		}
 	}
 }
 
@@ -128,6 +149,18 @@ function popCalendar( field ){
 	calendarField = field;
 	idate = eval( 'document.frmAdHoc.' + field + '.value' );
 	window.open( 'index.php?m=public&a=calendar&dialog=1&callback=setCalendar&date=' + idate, 'calwin', 'top=250,left=250,width=250, height=220, scollbars=false' );
+}
+
+function selAllItems() {
+	for(var i=0;i<document.frmAddInv.length;i++) {
+		document.frmAddInv[i].checked = true;
+	}
+}
+
+function unselAllItems() {
+	for(var i=0;i<document.frmAddInv.length;i++) {
+		document.frmAddInv[i].checked = false;
+	}
 }
 
 /**
@@ -153,13 +186,13 @@ function delIt() {
 </form>
 <tr>
 	<td width="50%" valign="top">
-		<strong><?php echo $AppUI->_('Details');?></strong>
+		<strong><?php echo $AppUI->_('Form Details');?></strong>
 		<table cellspacing="1" cellpadding="2" border="0" width="100%">
 		<tr>
-			<td align="right" nowrap><?php echo $AppUI->_('From');?>:</td>
-			<td class="hilite"><?php echo $obj->user_first_name . " " . $obj->user_last_name . " [ID: " . $obj->earning_user_id . "]";?></td>
+			<td align="right" nowrap><?php echo $AppUI->_('Date');?>:</td>
+			<td class="hilite"><?php echo $obj->earning_date ? $earning_date->format( $df ) : '-';?></td>
 		</tr>
-		<?php if ( $AppUI->user_type != 6 ) { ?>
+		<?php if ( $AppUI->user_type != 7 && !$timecard) { ?>
 			<tr>
 				<td align="right" nowrap><?php echo $AppUI->_('Invoice Number');?>:</td>
 				<td class="hilite"><?php echo $obj->earning_num;?></td>
@@ -171,15 +204,15 @@ function delIt() {
 			</tr>
 		<?php } ?>
 		<tr>
-			<td align="right" nowrap><?php echo $AppUI->_('Date');?>:</td>
-			<td class="hilite"><?php echo $obj->earning_date ? $earning_date->format( $df ) : '-';?></td>
+			<td align="right" nowrap><?php echo $AppUI->_('Title');?>:</td>
+			<td class="hilite"><?php echo stripslashes($obj->earning_title);?></td>
 		</tr>
 		<tr>
-			<td align="right" nowrap><?php echo $AppUI->_('Contact');?>:</td>
-			<td class="hilite"><?php echo $obj->earning_submit_contact;?></td>
+			<td align="right" nowrap><?php echo $AppUI->_('From');?>:</td>
+			<td class="hilite"><?php echo $obj->user_first_name . " " . $obj->user_last_name . " [ID: " . $obj->earning_user_id . "]";?></td>
 		</tr>
 		<tr>
-			<td align="right" nowrap><?php echo $AppUI->_('To');?>:</td>
+			<td align="right" nowrap><?php echo $AppUI->_('To Company');?>:</td>
 			<td class="hilite" width="100%"><?php echo $obj->company_name;?></td>
 		</tr>
 		<tr>
@@ -203,11 +236,15 @@ function delIt() {
 			<td class="hilite"><?php echo $obj->earning_submit_zip;?></td>
 		</tr>
 		<tr>
-			<td align="right" nowrap><?php echo $AppUI->_('Phone');?>:</td>
+			<td align="right" nowrap><?php echo $AppUI->_('Contact (name)');?>:</td>
+			<td class="hilite"><?php echo $obj->earning_submit_contact;?></td>
+		</tr>
+		<tr>
+			<td align="right" nowrap><?php echo $AppUI->_('Contact Phone');?>:</td>
 			<td class="hilite"><?php echo $obj->earning_submit_phone;?></td>
 		</tr>
 		<tr>
-			<td align="right" nowrap><?php echo $AppUI->_('Email');?>:</td>
+			<td align="right" nowrap><?php echo $AppUI->_('Notify Email');?>:</td>
 			<td class="hilite"><?php echo $obj->earning_submit_email;?></td>
 		</tr>
 		<tr>
@@ -217,69 +254,106 @@ function delIt() {
 		</table>
 	</td>
 	<td width="50%" rowspan="9" valign="top">
-		<b><?php echo $AppUI->_('Processing Activity');?></b><br/>
+		<b><?php echo $AppUI->_('Earnings Process');?></b><br/>
 		&nbsp;&nbsp;Step 1: Submit for Approval<br/>
 		&nbsp;&nbsp;Step 2: Approved By Manager (becomes printable)<br/>
-		<?php if ( $AppUI->user_type != 6 ) { ?>
+		<?php if ( $AppUI->user_type != 7 && !$timecard) { ?>
 			&nbsp;&nbsp;Step 3: Mark Paid When You Receive Payment
 		<? } ?>
 		&nbsp;<p/>
 		<table cellspacing="0" cellpadding="0" border="0" width="100%">
 		<?php if ( strcmp($obj->earning_submitted, '0000-00-00 00:00:00') == 0 ) { ?>
 		<tr>
-			<td align="right" valign="top" nowrap><?php echo $AppUI->_('Submitted&nbsp;For&nbsp;Approval');?>:&nbsp;<form name="frmSubmit" action="?m=earnings&a=inv_aed&earning_id=<?php echo $earning_id; ?>" method="post"><input type="hidden" name="inv_dosql" value="postsubmit"></td>
-			<td valign="top"><input type="text" name="earning_submitted_comment" value="<?php echo $obj->$earning_submitted_comment;?>" size="50" maxlength="250"></td>
+			<td align="right" valign="top" width="150" nowrap><?php echo $AppUI->_('Submit&nbsp;For&nbsp;Approval');?>:&nbsp;<form name="frmSubmit" action="?m=earnings&a=inv_aed&earning_id=<?php echo $earning_id; ?>" method="post">
+				<input type="hidden" name="inv_dosql" value="postsubmit">
+				<input type="hidden" name="earning_submit_contact" value="<? echo $obj->earning_submit_contact; ?>">
+				<input type="hidden" name="earning_num" value="<? echo $obj->earning_num; ?>">
+				<input type="hidden" name="earning_submit_email" value="<? echo $obj->earning_submit_email; ?>">
+				<input type="hidden" name="earning_title" value="<? echo stripslashes($obj->earning_title); ?>">
+				<input type="hidden" name="earning_comments" value="<? echo stripslashes($obj->earning_comments); ?>">
+				<input type="hidden" name="earning_submitted_comment" value="<? echo stripslashes($obj->earning_submitted_comment); ?>">
+				<input type="hidden" name="earning_id" value="<? echo $obj->earning_id; ?>">
+			</td>
+			<td valign="top"><i>You may add comments to send to the approver below.</i></td>
 		</tr>
 		<tr>
 			<td></td>
-			<td valign="top"><input type="button" name="btnPostSubmit" value=" submit for approval " onClick="javascript:postSubmit();">&nbsp;(comment optional)</form></td>
+			<td valign="top"><input type="text" name="earning_submitted_comment" value="<?php echo stripslashes($obj->earning_submitted_comment);?>" size="30" maxlength="250">&nbsp;<input type="button" name="btnPostSubmit" value=" submit " onClick="javascript:postSubmit();"></form></td>
 		</tr>
 		<?php } else { ?>
 		<tr>
-			<td align="right" valign="top" nowrap><?php echo $AppUI->_('Submitted');?>:&nbsp;</td>
+			<td align="right" valign="top" width="150" nowrap><?php echo $AppUI->_('Submitted');?>:&nbsp;</td>
 			<td valign="top">
 				<?php echo $submitted_date->format( $df );
 				echo "<br/>";
-				echo $obj->earning_submitted_comment;?>
+				echo "Comments&nbsp;Made&nbsp;By&nbsp;Submitter:&nbsp;<i>" . stripslashes($obj->earning_submitted_comment) . "</i><br/>";?>
 			</td>
 		</tr>
 		<?php } ?>
 		<tr><td>&nbsp;</td><td></td></tr>
-		<?php if ( ( strcmp($obj->earning_approved, '0000-00-00 00:00:00') == 0 ) && ( strcmp($obj->earning_submitted, '0000-00-00 00:00:00') != 0 ) && ( $AppUI->user_type < 6 ) ) { ?>
+		<?php if ( ( strcmp($obj->earning_approved, '0000-00-00 00:00:00') == 0 ) && ( strcmp($obj->earning_submitted, '0000-00-00 00:00:00') != 0 ) && ( $AppUI->user_type < 7 ) ) { ?>
 		<tr>
-			<td align="right" valign="top" nowrap><?php echo $AppUI->_('Approve');?>:&nbsp;<form name="frmApprove" action="?m=earnings&a=inv_aed&earning_id=<?php echo $earning_id; ?>" method="post"><input type="hidden" name="inv_dosql" value="postapprove"></td>
-			<td valign="top"><input type="text" name="earning_approved_comment" value="<?php echo $obj->$earning_approved_comment;?>" size="50" maxlength="250"></td>
+			<td align="right" valign="top" nowrap><?php echo $AppUI->_('Approve');?>:&nbsp;
+				<form name="frmApprove" action="?m=earnings&a=inv_aed&earning_id=<?php echo $earning_id; ?>" method="post">
+				<input type="hidden" name="inv_dosql" value="postapprove">
+				<input type="hidden" name="earning_submit_contact" value="<? echo $obj->earning_submit_contact; ?>">
+				<input type="hidden" name="earning_user_name" value="<? echo $obj->user_first_name . " " . $obj->user_last_name; ?>">
+				<input type="hidden" name="earning_user_email" value="<? echo $obj->user_email; ?>">
+				<input type="hidden" name="earning_num" value="<? echo $obj->earning_num; ?>">
+				<input type="hidden" name="earning_submit_email" value="<? echo $obj->earning_submit_email; ?>">
+				<input type="hidden" name="earning_title" value="<? echo stripslashes($obj->earning_title); ?>">
+				<input type="hidden" name="earning_comments" value="<? echo stripslashes($obj->earning_comments); ?>">
+				<input type="hidden" name="earning_submitted_comment" value="<? echo stripslashes($obj->earning_submitted_comment); ?>">
+				<input type="hidden" name="earning_id" value="<? echo $obj->earning_id; ?>">
+			</td>
+			<td valign="top"><i>You may add comments below.</i></td>
 		</tr>
 		<tr>
 			<td></td>
-			<td valign="top"><input type="button" name="btnPostApprove" value=" approve " onClick="javascript:postApprove();">&nbsp;<input type="button" name="btnPostDecline" value=" decline " onClick="javascript:postDecline();">&nbsp;(comment optional)</form></td>
+			<td valign="top"><input type="text" name="earning_approved_comment" value="<?php echo stripslashes($obj->$earning_approved_comment);?>" size="30" maxlength="250">&nbsp;
+				<input type="button" name="btnPostApprove" value=" yes " onClick="javascript:postApprove();">&nbsp;
+				<input type="button" name="btnPostDecline" value=" no " onClick="javascript:postDecline();">
+				</form>
+			</td>
 		</tr>
 		<?php } else { ?>
 		<tr>
-			<td align="right" nowrap valign="top"><?php echo $AppUI->_('Approved');?>:&nbsp;</td>
+			<td align="right" nowrap valign="top"><?php echo $AppUI->_('Approval');?>:&nbsp;</td>
 			<td valign="top">
 			<?php 
-			if ( strcmp($obj->earning_approved, '0000-00-00 00:00:00' ) == 0 ) { ?>
-				<i>Not Approved. <?php echo $obj->earning_approved_comment;?></i>
+			if ( strcmp($obj->earning_approved, '0000-00-00 00:00:00' ) == 0 ) { 
+				// Was Not Approved
+				if ( strcmp($obj->earning_approved_comment, '' ) != 0 ) {
+					// But was declined. ?>
+					Approval Declined.<br/> Comments&nbsp;From&nbsp;Manager:<i>&nbsp;<?php echo stripslashes($obj->earning_approved_comment);?></i>
+				<? 
+					} else { 
+						// Either not yet submitted OR waiting for approval
+						if ( strcmp($obj->earning_submitted, '0000-00-00 00:00:00') == 0 ) { ?>
+							<i>Not Yet Submitted.</i>
+						<? } else { ?>
+							<i>Awaiting Approval. <?php echo stripslashes($obj->earning_approved_comment);?></i>
+						<? } ?>
+				<? } ?>
 			<? } else {
 				echo $approved_date->format( $df );
 				echo "<br/>";
 			?>
-				<i><?php echo $obj->earning_approved_comment;?></i>
+				<i><?php echo stripslashes($obj->earning_approved_comment);?></i>
 			<? } ?>
 			</td>
 		</tr>
 		<?php } ?>
-		<?php if ( $AppUI->user_type != 6 ) { ?>
+		<?php if ( $AppUI->user_type != 7 && !$timecard) { ?>
 			<tr><td>&nbsp;</td><td></td></tr>
 			<?php if ( ( strcmp($obj->earning_paid, '0000-00-00 00:00:00') == 0 ) && ( strcmp($obj->earning_approved, '0000-00-00 00:00:00') != 0 ) ){ ?>
 			<tr>
 				<td align="right" valign="top" nowrap><?php echo $AppUI->_('Paid');?>:&nbsp;<form name="frmPaid" action="?m=earnings&a=inv_aed&earning_id=<?php echo $earning_id; ?>" method="post"><input type="hidden" name="inv_dosql" value="postpaid"></td>
-				<td valign="top"><input type="text" name="earning_paid_comment" value="<?php echo $obj->$earning_paid_comment;?>" size="50" maxlength="250"></td>
+				<td valign="top"><i>You may add comments when you mark this item paid.</td>
 			</tr>
 			<tr>
 				<td></td>
-				<td valign="top"><input type="button" name="btnPostPaid" value=" mark as paid " onClick="javascript:postPaid();">&nbsp;(comment optional)</form></td>
+				<td valign="top"><input type="text" name="earning_paid_comment" value="<?php echo stripslashes($obj->$earning_paid_comment);?>" size="30" maxlength="250">&nbsp;<input type="button" name="btnPostPaid" value=" mark paid " onClick="javascript:postPaid();"></form></td>
 			</tr>
 			<?php } else { ?>
 			<tr>
@@ -287,12 +361,12 @@ function delIt() {
 				<td valign="top">
 				<?php 
 				if ( strcmp($obj->earning_paid, '0000-00-00 00:00:00' ) == 0 ) { ?>
-					<i>Not Approved. <?php echo $obj->earning_paid_comment;?></i>
+					<i>Not Approved. <?php echo stripslashes($obj->earning_paid_comment);?></i>
 				<? } else { 
 					echo $paid_date->format( $df );
 					echo "<br/>";
 				?>
-					<i><?php echo $obj->earning_paid_comment;?></i>
+					<i><?php echo stripslashes($obj->earning_paid_comment);?></i>
 				<? } ?>
 				</td>
 			</tr>
@@ -305,11 +379,11 @@ function delIt() {
 	</tr>
 	<tr>
 		<td colspan="2">
-			<strong><?php echo $AppUI->_('Comments');?></strong><br/>
+			<strong><?php echo $AppUI->_('Comments On This Form');?></strong><br/>
 			<table cellspacing="0" cellpadding="2" border="0" width="100%">
 				<tr>
 					<td class="hilite">
-						<?php echo str_replace( chr(10), "<br />", $obj->earning_comments); ?>&nbsp;
+						<?php echo str_replace( chr(10), "<br />", stripslashes($obj->earning_comments)); ?>&nbsp;
 					</td>
 				</tr>
 			</table>

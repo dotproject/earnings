@@ -1,5 +1,5 @@
-<?php /* earnings $Id: items.php,v .1 2004/08/02 10:51:40 Stradius Exp $ */
-GLOBAL $m, $a, $earning_id, $f, $query_string, $changeLock;
+<?php /* earnings $Id: items.php,v 1.1 2004/08/31 09:27:06 stradius Exp $ */
+GLOBAL $m, $a, $earning_id, $f, $query_string, $changeLock, $timecard;
 // get the prefered date format
 $df = $AppUI->getPref('SHDATEFORMAT');
 
@@ -53,7 +53,7 @@ if ( $tab ) {
 	mysql_free_result($mrc);
 
 	// Next use the mask as part of the select statement to find non-committed log entries
-	$sql="SELECT task_log.*, tasks.*, projects.* FROM task_log, tasks, projects WHERE task_id = task_log_task AND project_id = task_project AND task_log_creator=$AppUI->user_id";
+	$sql="SELECT task_log.*, tasks.*, projects.* FROM task_log, tasks, projects WHERE task_id = task_log_task AND project_id = task_project AND task_log_creator=" . $AppUI->user_id;
 	// if the mask_array is empty, do nothing with it.
 	$mask="";
 	if ( count($mask_array) > 1) {
@@ -67,14 +67,16 @@ if ( $tab ) {
 			}
 		}
 		if ( strcmp($mask,"") == 0 ) {
-			$sql .= ";";
+			$sql .= "";
 		} else {
-			$sql .= " AND task_log_id NOT IN ( " . $mask . " );";
+			$sql .= " AND task_log_id NOT IN ( " . $mask . " )";
 		}
 	}
+	$sql .= " ORDER BY task_log_date DESC;";
 } else {
 	// List All earning Items Associated With This earning.
-	$sql="SELECT earnings.*, earnings_items.*, task_log.*, tasks.*, projects.* FROM earnings_items, earnings, task_log, tasks, projects WHERE earning_parent_id = earning_id AND task_log_id = earning_tasklog_id AND task_id = task_log_task AND project_id = task_project AND earning_id = $earning_id;";
+	$sql="SELECT earnings.*, earnings_items.*, task_log.*, tasks.*, projects.* FROM earnings_items, earnings, task_log, tasks, projects WHERE earning_parent_id = earning_id AND task_log_id = earning_tasklog_id AND task_id = task_log_task AND project_id = task_project AND earning_id=" . $earning_id;
+	$sql .= " ORDER BY task_log_date DESC;";
 }
 $irc=db_exec( $sql );
 echo db_error();
@@ -103,7 +105,19 @@ if ( $tab ) {
 	<?
 	if ( count($earning_items) < 1 ) {
 		echo "<tr><td colspan='7'>No log entries available. Did you log all of your work?.</td></tr>";
-	} else {
+	} else { 
+		if ( count($earning_items) > 15 ) { ?>
+			<tr>
+				<td colspan="7" align="right">
+					<?php if ( !$changeLock ) { ?>
+						<i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Select the items you want to add to this form.</i>&nbsp;
+						<input type="button" name="btnSelAll" value=" sel all " onClick="selAllItems();">&nbsp;
+						<input type="button" name="btnUnSelAll" value=" unsel all " onClick="unselAllItems();">&nbsp;
+						<input type="button" name="btnAdd" value=" add sel " onClick="addInvItems();">&nbsp;
+					<?php } ?>
+				</td>
+			</tr>
+		<? } 
 		foreach($earning_items as $x) {
 	?>
 	<tr>
@@ -143,10 +157,13 @@ if ( $tab ) {
 			}
 			if ( strcmp($x,"") != 0) {
 	?>
-		<tr>
+	<tr>
 		<td colspan="7" align="right">
 			<?php if ( !$changeLock ) { ?>
-				<input type="button" name="btnAdd" value=" add " onClick="addInvItems();">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+				<i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Select the items you want to add to this form.</i>&nbsp;
+				<input type="button" name="btnSelAll" value=" sel all " onClick="selAllItems();">&nbsp;
+				<input type="button" name="btnUnSelAll" value=" unsel all " onClick="unselAllItems();">&nbsp;
+				<input type="button" name="btnAdd" value=" add sel " onClick="addInvItems();">&nbsp;
 			<?php } ?>
 		</td>
 	</tr>
@@ -168,7 +185,7 @@ if ( $tab ) {
 		<th width="30"><?php echo $AppUI->_('Project&nbsp;Name');?></th>
 		<th nowrap="nowrap"><?php echo $AppUI->_('Task Name');?></th>
 		<th width="10" nowrap="nowrap"><?php echo $AppUI->_('Hrs/Qty');?></th>
-		<?php if ( $AppUI->user_type != 6 ) { ?>
+		<?php if ( $AppUI->user_type != 7 && !$timecard) { ?>
 			<th width="10" nowrap="nowrap"><?php echo $AppUI->_('Rate');?>&nbsp;&nbsp;</th>
 			<th width="30" nowrap="nowrap"><?php echo $AppUI->_('SubTotal');?></th>
 		<?php } else { ?>
@@ -211,7 +228,7 @@ if ( $tab ) {
 				$tmp_earning_hours += $x["task_log_hours"];
 			?>
 		</td>
-		<?php if ( $AppUI->user_type != 6 ) { ?>
+		<?php if ( $AppUI->user_type != 7 && !$timecard) { ?>
 			<td nowrap="nowrap">
 				<?php $tmp_rate = $x["earning_item_rate"]; ?>
 				$&nbsp;<input type="text" size="6" maxlength="10" name="rate:<?php echo $x[earning_items_id];?>" value="<?php echo $x["earning_item_rate"];?>">
@@ -248,7 +265,7 @@ if ( $tab ) {
 	<tr>
 		<td colspan="4">
 		</td>
-		<?php if ( $AppUI->user_type != 6 ) { ?>
+		<?php if ( $AppUI->user_type != 7 && !$timecard) { ?>
 			<td valign="middle">
 				<?php if ( !$changeLock ) { ?>
 					<center><input type="button" name="btnUpd" value=" upd " onClick="updRates();"></center>
@@ -273,7 +290,7 @@ if ( $tab ) {
 		<th width="20"><?php echo $AppUI->_('Date');?></th>
 		<th colspan="2"><?php echo $AppUI->_('Description');?></th>
 		<th width="10" nowrap="nowrap"><?php echo $AppUI->_('Hrs/Qty');?></th>
-		<?php if ( $AppUI->user_type != 6 ) { ?>
+		<?php if ( $AppUI->user_type != 7 && !$timecard) { ?>
 			<th width="10" nowrap="nowrap"><?php echo $AppUI->_('Rate');?>&nbsp;&nbsp;</th>
 			<th width="30" nowrap="nowrap"><?php echo $AppUI->_('SubTotal');?></th>
 		<?php } else { ?>
@@ -290,7 +307,9 @@ if ( $tab ) {
 	</tr>
 	<?
 		// Add Ad Hoc earning Items Grabbed From earnings_items Table
-		$sql="SELECT earnings_items.* FROM earnings_items WHERE earning_tasklog_id='0' AND earning_parent_id = " . $earning_id . ";";
+		$sql="SELECT earnings_items.* FROM earnings_items WHERE earning_tasklog_id='0' AND earning_parent_id = " . $earning_id;
+		$sql.=" ORDER BY earning_item_date DESC;";
+		//echo $sql;
 		$arc=db_exec( $sql );
 		echo db_error();
 
@@ -321,7 +340,7 @@ if ( $tab ) {
 				$tmp_earning_hours += $x["earning_item_hours"];
 			?>
 		</td>
-		<?php if ( $AppUI->user_type != 6 ) { ?>
+		<?php if ( $AppUI->user_type != 7 && !$timecard) { ?>
 			<td nowrap="nowrap">
 				<?php $tmp_rate = $x["earning_item_rate"]; ?>
 				$&nbsp;<input type="text" size="6" maxlength="10" name="rate:<?php echo $x[earning_items_id];?>" value="<?php echo $x["earning_item_rate"];?>">
@@ -351,7 +370,7 @@ if ( $tab ) {
 	<tr>
 		<td colspan="4">
 		</td>
-		<?php if ( $AppUI->user_type != 6 ) { ?>
+		<?php if ( $AppUI->user_type != 7 && !$timecard) { ?>
 			<td valign="middle">
 				<?php if ( !$changeLock ) { ?>
 					<center><input type="button" name="btnUpd" value=" upd " onClick="updRates();"></center>
@@ -383,7 +402,7 @@ if ( $tab ) {
 		</td>
 		<td>
 		</td>
-		<?php if ( $AppUI->user_type != 6 ) { ?>
+		<?php if ( $AppUI->user_type != 7 && !$timecard) { ?>
 			<td valign="middle">
 				<?php echo '$' . number_format($tmp_earning_total, 2, '.', ','); ?>
 			</td>
@@ -408,7 +427,7 @@ if ( $tab ) {
 			<th><?php echo $AppUI->_('Set Date');?></th>
 			<th colspan="2"><?php echo $AppUI->_('Description');?></th>
 			<th nowrap="nowrap"><?php echo $AppUI->_('Hrs/Qty');?></th>
-			<?php if ( $AppUI->user_type != 6 ) { ?>
+			<?php if ( $AppUI->user_type != 7 && !$timecard) { ?>
 				<th nowrap="nowrap"><?php echo $AppUI->_('Rate');?>&nbsp;&nbsp;</th>
 			<?php } else { ?>
 				<th width="2"></th>
@@ -430,7 +449,7 @@ if ( $tab ) {
 			<td width="20" valign="top">
 				<input type="text" name="adhoc_earning_item_hours" size="3" maxlength="3" value="1">
 			</td>
-			<?php if ( $AppUI->user_type != 6 ) { ?>
+			<?php if ( $AppUI->user_type != 7 && !$timecard) { ?>
 				<td valign="top" nowrap="nowrap">
 					$&nbsp;<input type="text" name="adhoc_earning_item_rate" size="6" maxlength="10" value="0.00">
 				</td>
