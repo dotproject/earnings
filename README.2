@@ -1,0 +1,111 @@
+Earnings dotModule
+Version .01 - August 2004
+http://www.dotproject.net
+Copyright (C) 2004 Bradley Stec, bstec@whereless.com
+----------------------------------------------------
+
+A dotProject employee timecard and subcontractor invoice editing tool 
+with approval process management.
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+
+Requirements:
+- PHP4.1
+- MySQL (tested with 3.23.x)
+- DotProject v1.01 Released
+- A web-browser (Doh!)
+
+Summary:
+The purpose of the earnings module is to allow users marked as employees
+and/or contractors to bill their managers for their time either in hours (timecard)
+or as an actual invoice with hours and rates.
+
+The interface customizes to fit the user_type specified by the user's profile:
+
+User Type(s) 0,1,2,3,4,5 (admin, executives, and managers)
+- Get the ability to create invoices to bill the company they belong to for their time; and
+- the ability to approve timecards and invoices submitted to them by employees and contractors.
+
+User Type 6 (employee)
+- Gets the ability to create timecards to report their work to the managers.
+
+User Type 7 (contractor)
+- Gets the ability to create invoices to bill the managers for their time.
+
+The Earnings module is based upon the core of the dotProject system: The Task Logging functions.  
+It assumes that users are working on projects and logging their progress on tasks.  To simplify
+their work, the earnings allows them to select by line-item log entries from the task logs
+to add to timecards and invoices.  The Earnings module then "masks out" log line-items that
+have already been added to timecards and invoices (so that they can't be reported more than
+once).  
+
+The Earnings module allows users to put Ad Hoc line-items into the invoices.  So it IS 
+possible for a user to create an entire invoice or timecard from Ad Hoc manual entries!
+
+The Earnings module also provides an approval process so that users can keep records of their
+timecards and invoices.  The process is as follows:
+
+1) Create a new timecard/invoice.
+2) Submit it for approval after it is ready.
+3) An approver (manager or higher level) can decline (returning it to the submit queue) OR 
+approve it.
+4) Contractors Only: Can mark an invoice as paid after they've received payment on it.
+
+Rules: Timecards and invoices which have been submitted for approval can no longer be deleted
+or edited.  
+
+Please submit bugs and/or requests through the normal channels at www.dotproject.net.
+
+TODO/PLANS: 
+
+1) Printable style sheet option.  Add rule to allow timecards and invoices which have been 
+approved and/or marked as paid can be printed using a print template system.
+2) Modified Earnings Module for invoicing external clients.... maybe.
+3) Improved layout of the items list.  Some high-level information on each timecard/invoice 
+might be useful.
+4) Add a "select all" option for the checkbox column when adding task_log items to 
+a timecard/invoice.
+
+KNOWN PROBLEMS/ISSUES:
+
+1) Switching to flat screen layout not supported in Earnings Item List.
+2) The name "earnings" isn't so great.  But it is valid.  There's already too many dotmods
+with good names for this kind of purpose.
+3) At this time, ALL managers or higher levels can see the "Waiting for Approval" tab.  
+If you want tighter restrictions, you'll need to use the user permissions to prevent
+non-appropriate managers from seeing the Earnings module. 
+4) If you are a manager approving a timecard from an employee you will still see the "rates" 
+column (set at $0/hr).  This will be removed.
+5) The timecard/invoice number must be unique.  The "suggest a number" is based upon the only 
+possible unique number available (short of creating some kind of unique number table and system).
+It would be nice to come up with something more human readable.
+
+CREDITS:
+
+Thanks to the whole community at dotproject.net for creating one kick-ass application.  
+I'm always discovering cool new ways to use it.
+
+INSTALL: 
+
+1) Get Earnings file tree untarred/unzipped into a /modules/earnings directory under your dotProject
+installation.  
+2) Log on to the dotProject system as Admin and use the System Admin | View Modules.
+3) Make the Earnings module visible and enabled.
+4) Make sure that your users are properly profiles with a user-type.
+5) Add read/write permissions to the Earnings module to all users you want to have access to it.
+
+CHANGELOG:
+
+08/31/2004 (Brad Stec): Original Version.
